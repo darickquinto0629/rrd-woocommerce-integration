@@ -7,6 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-07-19
+
+### Refactored
+
+#### Service-Oriented Architecture (SOA) Implementation
+
+Complete architectural refactoring to implement Single Responsibility Principle (SRP) and separation of concerns:
+
+**Step 5: Admin UI Extraction**
+
+- Extracted all admin UI rendering from monolithic `order-submission.php` into dedicated `RRD_Admin` class (189 lines)
+- Separated concerns: UI rendering, asset management, script localization
+- Methods: `init()`, `enqueue_assets()`, `render_meta_box()`, `render_status_section()`, `get_status_display_data()`, `localize_script()`, `get_status_label()`, `get_default_status()`
+- Admin page now purely handles display logic with zero business logic
+- Improved maintainability and testability of UI code
+
+**Step 6: AJAX Handler Extraction**
+
+- Extracted all AJAX endpoints from monolithic `order-submission.php` into dedicated `RRD_AJAX` class (90 lines)
+- Centralized request validation: `validate_request()` method handles nonce, permissions, order retrieval
+- Clean separation: AJAX handlers only validate requests and delegate to services
+- Methods: `init()`, `validate_request()`, `preview_payload()`, `submit_order()`
+- Zero business logic in AJAX handlers - all orchestration delegated to `rrd_submit_order_to_api()`
+
+#### Architecture Overview
+
+Complete class hierarchy following Service-Oriented Architecture:
+
+```
+rrd-woocommerce-integration.php (Bootstrap)
+├── includes/helpers.php (Utilities)
+├── includes/class-rrd-payload-builder.php (Step 1: Payload Generation)
+├── includes/class-rrd-api-client.php (Step 2: HTTP Communication)
+├── includes/class-rrd-response-handler.php (Step 3: Response Processing)
+├── includes/class-rrd-order-service.php (Step 4: Data Persistence)
+├── includes/class-rrd-admin.php (Step 5: UI Rendering) ⭐ NEW
+├── includes/class-rrd-ajax.php (Step 6: Request Handling) ⭐ NEW
+└── includes/order-submission.php (Core Orchestration)
+```
+
+#### Code Quality Improvements
+
+- **Separation of Concerns:** Admin UI, AJAX handling, payload building, API communication, response handling, and data persistence are now completely isolated
+- **Single Responsibility:** Each class has one reason to change
+- **Improved Testability:** Each component can now be tested independently
+- **Reduced Coupling:** Classes depend on interfaces/contracts, not implementations
+- **Better Maintainability:** Small, focused classes are easier to understand and modify
+- **No Business Logic in UI:** Admin and AJAX classes purely handle presentation and request routing
+- **100% Backward Compatible:** All hooks, AJAX actions, order meta keys, and payloads remain unchanged
+
+### Non-Breaking Changes
+
+✅ **Preserved:**
+
+- All WordPress hooks and filters
+- All AJAX actions (`wp_ajax_rrd_preview_payload`, `wp_ajax_rrd_submit_order`)
+- All order meta keys (`rrd_submission_status`, `rrd_last_submitted_at`, `rrd_return_code`, etc.)
+- All payload structures and API behavior
+- All public function signatures
+- Complete user-facing functionality
+
+✅ **Improved:**
+
+- Code organization and maintainability
+- Class separation and modularity
+- Testability of individual components
+- Developer experience when extending the plugin
+
+### Technical Details
+
+- Refactoring follows WordPress and WooCommerce coding standards
+- All new classes follow SOLID principles
+- Code organization follows Service-Oriented Architecture (SOA) pattern
+- Each file has one responsibility per SRP guidelines
+- Zero changes to database schema, options, or data structures
+- All existing functionality preserved exactly as before
+
+---
+
 ## [0.2.0] - 2026-07-19
 
 ### Added

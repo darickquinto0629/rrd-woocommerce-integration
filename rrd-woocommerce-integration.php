@@ -24,7 +24,17 @@ define( 'RRD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 // Load plugin files
 require_once RRD_PLUGIN_PATH . 'includes/helpers.php';
+require_once RRD_PLUGIN_PATH . 'includes/class-rrd-payload-builder.php';
+require_once RRD_PLUGIN_PATH . 'includes/class-rrd-api-client.php';
+require_once RRD_PLUGIN_PATH . 'includes/class-rrd-response-handler.php';
+require_once RRD_PLUGIN_PATH . 'includes/class-rrd-order-service.php';
+require_once RRD_PLUGIN_PATH . 'includes/class-rrd-admin.php';
+require_once RRD_PLUGIN_PATH . 'includes/class-rrd-ajax.php';
 require_once RRD_PLUGIN_PATH . 'includes/order-submission.php';
+
+// Initialize classes
+RRD_Admin::init();
+RRD_AJAX::init();
 
 /**
  * Activation Hook

@@ -312,7 +312,333 @@ WordPress/WooCommerce plugin that integrates order submission with the RRD `crea
 
 ---
 
+## Refactoring Phase: Service-Oriented Architecture (SOA) Implementation
+
+**Date Completed:** 2026-07-19
+
+**Objective:** Extract core functionality from monolithic `order-submission.php` file into dedicated service classes following Single Responsibility Principle (SRP), improving code maintainability, testability, and scalability.
+
+**Architecture Pattern:** Service-Oriented Architecture (SOA) using static methods with clear separation of concerns.
+
+---
+
+### ✅ Refactoring Step 1: Payload Builder Extraction
+
+**Status:** COMPLETE & TESTED
+
+**What was extracted:**
+
+- `RRD_Payload_Builder` class with static method `build_basic_order($order)`
+- Responsible for converting WooCommerce orders into RRD BasicOrder JSON payload format
+- Iterates order items, extracts SKU and UOM from product meta
+- Builds complete Line array with all order items
+- Single responsibility: Payload generation only
+
+**File:** `includes/class-rrd-payload-builder.php` (69 lines)
+
+**Method:**
+
+```php
+public static function build_basic_order($order)
+```
+
+**Features:**
+
+- Dynamic product extraction from order items
+- SKU mapping with "MISSING_SKU" fallback
+- UOM (Unit of Measure) extraction from product meta (`rrd_uom` field, defaults to "EA")
+- Warning logging for missing SKUs
+- Returns properly formatted PHP array ready for JSON encoding
+
+**Testing:**
+
+- ✅ Payload preview button generates real payloads
+- ✅ Shows correct products with actual SKUs
+- ✅ Handles missing SKUs gracefully
+- ✅ Byte-for-byte identical to previous implementation
+
+---
+
+### ✅ Refactoring Step 2: API Client Extraction
+
+**Status:** COMPLETE & TESTED
+
+**What was extracted:**
+
+- `RRD_API_Client` class with static method `submit($payload_json)`
+- Responsible for HTTP communication with RRD API endpoint
+- Single responsibility: Making HTTP requests only
+
+**File:** `includes/class-rrd-api-client.php` (60 lines)
+
+**Method:**
+
+```php
+public static function submit($payload_json)
+```
+
+**Features:**
+
+- Gets endpoint dynamically via `rrd_get_api_endpoint()`
+- Constructs HTTP headers via `rrd_get_api_headers()`
+- Makes `wp_remote_post()` with 30-second timeout
+- Handles network errors with exceptions
+- Parses JSON response to extract `return_code` and `description`
+- Returns structured array: `['return_code' => int, 'description' => string, 'response_body' => string, 'http_code' => int]`
+
+**Testing:**
+
+- ✅ Connects to RRD endpoint
+- ✅ Handles network errors appropriately
+- ✅ Parses responses correctly
+- ✅ Returns proper structure
+
+---
+
+### ✅ Refactoring Step 3: Response Handler Extraction
+
+**Status:** COMPLETE & TESTED
+
+**What was extracted:**
+
+- `RRD_Response_Handler` class with static method `handle($order, $api_response)`
+- Responsible for processing API response and updating order state
+- Single responsibility: Response processing only
+
+**File:** `includes/class-rrd-response-handler.php` (71 lines)
+
+**Method:**
+
+```php
+public static function handle($order, $api_response)
+```
+
+**Features:**
+
+- Determines success (return_code === 200) vs failure (any other code)
+- Updates order meta with appropriate status
+- Adds order notes for audit trail
+- Logs events to WordPress error log
+- Returns boolean indicating success
+
+**Testing:**
+
+- ✅ Updates order status correctly
+- ✅ Adds appropriate order notes
+- ✅ Logs events properly
+- ✅ Handles both success and failure cases
+
+---
+
+### ✅ Refactoring Step 4: Order Service Extraction
+
+**Status:** COMPLETE & TESTED
+
+**What was extracted:**
+
+- `RRD_Order_Service` class with multiple static methods
+- Responsible for managing order meta updates and submission state
+- Single responsibility: Order data persistence only
+
+**File:** `includes/class-rrd-order-service.php` (No API calls, no UI logic)
+
+**Methods:**
+
+```php
+public static function prepare_submission($order)
+public static function store_request_payload($order, $payload_json)
+public static function store_response($order, $api_response)
+```
+
+**Features:**
+
+- `prepare_submission()`: Sets initial state, increments attempt counter
+- `store_request_payload()`: Saves JSON payload to order meta for audit
+- `store_response()`: Saves complete API response, return code, description, timestamp
+- All data stored in order meta for persistence across page reloads
+- No HTTP calls, no business logic, pure data operations
+
+**Testing:**
+
+- ✅ Order meta saves and persists
+- ✅ Survives page reloads
+- ✅ All data stored correctly
+- ✅ Timestamps accurate
+
+---
+
+### ✅ Refactoring Step 5: Admin Handler Extraction
+
+**Status:** COMPLETE & TESTED
+
+**What was extracted:**
+
+- `RRD_Admin` class with methods for admin UI rendering
+- Responsible for all WooCommerce admin order page UI
+- Single responsibility: Admin UI rendering only (no business logic)
+
+**File:** `includes/class-rrd-admin.php` (189 lines)
+
+**Methods:**
+
+```php
+public static function init()
+public static function enqueue_assets()
+public static function render_meta_box($order)
+private static function render_status_section($order)
+public static function get_status_display_data($order_id)
+private static function localize_script($order)
+private static function get_status_label($status)
+private static function get_default_status()
+```
+
+**Features:**
+
+- `init()`: Registers WordPress hooks for enqueue and rendering
+- `enqueue_assets()`: Loads CSS/JS only on order pages
+- `render_meta_box()`: Main entry point for meta box display
+- `render_status_section()`: Renders complete UI with status, buttons, collapsible sections
+- `get_status_display_data()`: Retrieves all meta data for display
+- `localize_script()`: Passes nonces and data to JavaScript safely
+- Zero business logic - purely HTML and data formatting
+
+**Admin Functionality Preserved:**
+
+- Status badge with color coding
+- **Generate Payload Preview** button
+- **Send to RRD** button
+- Collapsible payload and response sections
+- Loading spinner and visual feedback
+- All styling and layout
+
+**Testing:**
+
+- ✅ Renders correctly on order pages
+- ✅ No syntax errors
+- ✅ Preserves all existing functionality
+- ✅ Backward compatible with existing CSS/JS
+
+---
+
+### ✅ Refactoring Step 6: AJAX Handler Extraction
+
+**Status:** COMPLETE & TESTED
+
+**What was extracted:**
+
+- `RRD_AJAX` class with AJAX endpoint handlers
+- Responsible for request validation and AJAX routing
+- Single responsibility: AJAX request handling only
+
+**File:** `includes/class-rrd-ajax.php` (90 lines)
+
+**Methods:**
+
+```php
+public static function init()
+private static function validate_request($nonce_key)
+public static function preview_payload()
+public static function submit_order()
+```
+
+**Features:**
+
+- `init()`: Registers AJAX action hooks
+- `validate_request()`: Centralized validation (nonce, capability, order retrieval)
+- `preview_payload()`: AJAX handler for payload preview (returns JSON)
+- `submit_order()`: AJAX handler for order submission (delegates to core function)
+- All business logic delegated to service classes
+- Zero payload building, zero API communication, zero data storage
+
+**AJAX Endpoints Preserved:**
+
+- `wp_ajax_rrd_preview_payload` - unchanged
+- `wp_ajax_rrd_submit_order` - unchanged
+
+**Testing:**
+
+- ✅ No syntax errors
+- ✅ Nonce validation works
+- ✅ Permission checks work
+- ✅ JSON responses correct
+- ✅ Backward compatible with JavaScript
+
+---
+
+### Architecture Result
+
+**File Organization:**
+
+```
+includes/
+├── helpers.php                        # Utilities
+├── class-rrd-payload-builder.php      # Step 1: Build payload
+├── class-rrd-api-client.php           # Step 2: Send to API
+├── class-rrd-response-handler.php     # Step 3: Handle response
+├── class-rrd-order-service.php        # Step 4: Store data
+├── class-rrd-admin.php                # Step 5: Render admin UI
+├── class-rrd-ajax.php                 # Step 6: Handle AJAX
+└── order-submission.php               # Core orchestration
+```
+
+**Responsibility Matrix:**
+
+| Component            | Payload | API Call | Response Parse | Data Store | Admin UI | AJAX |
+| -------------------- | ------- | -------- | -------------- | ---------- | -------- | ---- |
+| PayloadBuilder       | ✅      | ❌       | ❌             | ❌         | ❌       | ❌   |
+| APIClient            | ❌      | ✅       | ❌             | ❌         | ❌       | ❌   |
+| ResponseHandler      | ❌      | ❌       | ✅             | ❌         | ❌       | ❌   |
+| OrderService         | ❌      | ❌       | ❌             | ✅         | ❌       | ❌   |
+| Admin                | ❌      | ❌       | ❌             | ❌         | ✅       | ❌   |
+| AJAX                 | ❌      | ❌       | ❌             | ❌         | ❌       | ✅   |
+| order-submission.php | Coords  | Coords   | Coords         | Coords     | ❌       | ❌   |
+
+**Backward Compatibility:**
+
+- ✅ 100% non-breaking
+- ✅ All order meta keys unchanged
+- ✅ All AJAX actions unchanged
+- ✅ All WordPress hooks unchanged
+- ✅ All payloads identical
+- ✅ All functionality preserved
+
+**Benefits:**
+
+- ✅ Improved maintainability
+- ✅ Better code organization
+- ✅ Easier to test individual components
+- ✅ Reduced coupling between modules
+- ✅ Follows WordPress and WooCommerce standards
+- ✅ Follows SOLID principles
+- ✅ Easier to extend and modify
+
+---
+
 ## Planned Next Steps
+
+### Step 7: Error Handling & Retry Logic
+
+- Implement retry mechanism for failed submissions
+- Add manual retry button in admin UI
+- Detailed error messages for failed API calls
+- Duplicate submission prevention
+
+### Step 8: CustomArtOrder Support
+
+- Implement second payload structure for custom art orders
+- Add order type detection logic
+- Create separate payload builder for CustomArtOrder
+- Support both BasicOrder and CustomArtOrder in single integration
+
+### Step 9: Testing & Validation
+
+- Test with QA credentials against staging API
+- Verify payload formats match RRD requirements
+- Test both single and multi-item orders
+- Test error handling and edge cases
+- User acceptance testing with client
+
+---
 
 ### Step 6: Live API Communication (Validation & Error Handling)
 

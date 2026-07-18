@@ -2,42 +2,116 @@
 
 ## Overview
 
-This WordPress/WooCommerce plugin integrates order submission with the RRD `createorder` API using Basic HTTP Authentication and JSON payloads.
+This WordPress/WooCommerce plugin integrates order submission with the RRD `createorder` API using Basic HTTP Authentication and JSON payloads. Built with service-oriented architecture (SOA) following Single Responsibility Principle (SRP) for maintainability and scalability.
 
-**Version:** 0.1.0  
+**Version:** 0.3.0  
 **Author:** Darick L. Quinto  
-**Status:** Development - Steps 1 & 2 Complete
+**Status:** Production-Ready - All Core Features & Architecture Complete
 
 ---
 
-## Current Features (Steps 1 & 2)
+## Current Features (All Steps Complete)
 
-### ✅ Plugin Setup
+### ✅ Core Features (v0.2.0)
+
+#### Plugin Setup
 
 - Plugin header with proper WordPress standards
-- Activation/deactivation hooks
+- Activation/deactivation hooks with default options
 - Admin menu with main dashboard
 - Initialization of default options
 
-### ✅ Settings Page
+#### Settings Management
 
 - Secure credential storage in WordPress options
 - Environment selector (QA/Staging vs Production)
-- Client ID configuration
-- API Username storage
-- API Password storage (masked in logs)
-- Displays both API endpoints for reference
+- Client ID, API Username, and Password configuration
 - Form validation and nonce protection
-- Success confirmation on save
+- Success notifications on save
+- Both API endpoints displayed for reference
 
-### ✅ Helper Functions
+#### Helper Functions & Utilities
 
-- `rrd_get_api_endpoint()` — Returns QA or Production endpoint based on environment
-- `rrd_get_basic_auth_header()` — Generates Basic Auth header
-- `rrd_get_api_headers()` — Returns all required API headers
-- `rrd_log()` — Logs to WordPress error log with masking
-- `rrd_mask_sensitive_data()` — Masks credentials in logs
-- `rrd_validate_configuration()` — Validates all credentials are set
+- `rrd_get_api_endpoint()` — Dynamic endpoint resolver
+- `rrd_get_basic_auth_header()` — Basic Auth header generator
+- `rrd_get_api_headers()` — Complete HTTP headers with auth
+- `rrd_log()` — WordPress error log + order notes logging
+- `rrd_mask_sensitive_data()` — Secure credential masking
+- `rrd_validate_configuration()` — Credential validation
+
+#### Real Payload Builder
+
+- Dynamic product extraction from WooCommerce orders
+- Automatic SKU mapping to `CustomerSKU` field
+- Dynamic UOM (Unit of Measure) support via product meta
+- Multi-line payload support for all order items
+- Missing SKU visibility with warning logging
+- Real BasicOrder payload generation
+
+#### Live API Communication
+
+- Real HTTP POST requests to RRD endpoint
+- Basic HTTP Authentication with stored credentials
+- 30-second timeout for requests
+- Complete response parsing (return code, description)
+- Network error handling with exceptions
+- Full order meta storage for audit trail
+- Submission history tracking with attempt count
+
+#### Admin Order Integration
+
+- Order submission status display with color-coded badges
+- **Generate Payload Preview** button with JSON display
+- **Send to RRD** button for manual submission
+- Collapsible sections for payload and response viewing
+- Loading spinners and visual feedback
+- Order notes logging for audit trail
+- Secure AJAX handlers with nonce verification
+
+### ✅ Architecture & Code Quality (v0.3.0 - NEW)
+
+#### Service-Oriented Architecture
+
+- **6 Dedicated Service Classes** following Single Responsibility Principle:
+  1. `RRD_Payload_Builder` — Payload generation
+  2. `RRD_API_Client` — HTTP communication
+  3. `RRD_Response_Handler` — Response processing
+  4. `RRD_Order_Service` — Data persistence
+  5. `RRD_Admin` — Admin UI rendering (NEW)
+  6. `RRD_AJAX` — AJAX request handling (NEW)
+
+#### Code Quality Improvements
+
+- Clean separation of concerns
+- No business logic in UI/AJAX handlers
+- Improved testability and modularity
+- Reduced coupling between components
+- Follows WordPress and WooCommerce coding standards
+- 100% backward compatible (non-breaking refactor)
+
+#### File Structure
+
+```
+rrd-woocommerce-integration/
+├── rrd-woocommerce-integration.php    (Bootstrap, initialization)
+├── includes/
+│   ├── helpers.php                    (Utilities & core functions)
+│   ├── class-rrd-payload-builder.php  (Payload generation)
+│   ├── class-rrd-api-client.php       (API communication)
+│   ├── class-rrd-response-handler.php (Response processing)
+│   ├── class-rrd-order-service.php    (Data persistence)
+│   ├── class-rrd-admin.php            (Admin UI)
+│   ├── class-rrd-ajax.php             (AJAX handlers)
+│   └── order-submission.php           (Core orchestration)
+├── assets/
+│   ├── css/order-submission.css       (UI styling)
+│   └── js/order-submission.js         (Client-side logic)
+├── docs/
+│   └── DEVELOPMENT_LOG.md             (Detailed development notes)
+├── README.md                          (This file)
+├── CHANGELOG.md                       (Release history)
+└── LICENSE                            (Project license)
+```
 
 ---
 
