@@ -5,7 +5,7 @@
 WordPress/WooCommerce plugin that integrates order submission with the RRD `createorder` API using Basic HTTP Authentication and JSON payloads.
 
 **Version:** 0.2.0  
-**Status:** Steps 1-5 Complete
+**Status:** Steps 1-6 Complete
 
 ---
 
@@ -197,6 +197,88 @@ WordPress/WooCommerce plugin that integrates order submission with the RRD `crea
 - Custom field name: `rrd_uom`
 - Stores Unit of Measure (EA, BOX, CASE, etc.)
 - Default fallback: "EA" (Each)
+
+---
+
+### ✅ Step 6: Live API Communication
+
+**Date Completed:** 2026-07-19
+
+**What was implemented:**
+
+- Real HTTP POST requests to RRD endpoint using WordPress `wp_remote_post()`
+- Complete Basic HTTP Authentication with stored credentials
+- 30-second timeout for all API requests
+- Full response parsing to extract `ReturnCode` and `Description` from JSON response
+- Network error handling with exception handling and proper error logging
+- Comprehensive order meta storage for complete audit trail
+- Submission history tracking with all submission attempts
+
+**Implementation Details:**
+
+**Function:** `rrd_submit_order_to_api($order)`
+
+- Validates configuration before attempting API call
+- Generates real BasicOrder payload via `rrd_generate_payload_preview()`
+- Constructs HTTP headers with Basic Authentication
+- Makes real POST request to RRD endpoint via `wp_remote_post()`
+- Handles network errors with try/catch and exception logging
+- Parses JSON response to extract `ReturnCode` and `Description`
+- Falls back to HTTP status code if API JSON not available
+- Updates order meta with submission details:
+  - `rrd_submission_status`: Set to 'success' (200) or 'failed' (any other code)
+  - `rrd_last_submitted_at`: MySQL timestamp of submission attempt
+  - `rrd_return_code`: HTTP or API return code
+  - `rrd_last_response_body`: Full JSON response body for debugging
+  - `rrd_description`: API description text from response
+  - `rrd_submit_count`: Incremented submission attempt count
+- Saves order changes to database via `$order->save()`
+
+**Order Meta Fields Stored:**
+
+| Meta Key                   | Type    | Example                 | Purpose                         |
+| -------------------------- | ------- | ----------------------- | ------------------------------- |
+| `rrd_submission_status`    | string  | 'success' or 'failed'   | Status badge display            |
+| `rrd_last_submitted_at`    | string  | '2026-07-19 14:30:00'   | Timestamp of last attempt       |
+| `rrd_return_code`          | integer | 200 or 403              | HTTP/API response code          |
+| `rrd_last_response_body`   | string  | JSON string             | Complete API response           |
+| `rrd_description`          | string  | 'Success' or error text | User-facing description         |
+| `rrd_submit_count`         | integer | 1, 2, 3...              | Number of submission attempts   |
+| `rrd_last_request_payload` | string  | JSON string             | Last payload sent (from Step 5) |
+
+**Error Handling:**
+
+- **Network Error:** Exception caught and logged, status set to 'failed'
+- **HTTP Error (non-200):** Logged, status set to 'failed', return code stored
+- **Missing Configuration:** Exception thrown before API call, user notified
+- **JSON Parse Error:** Falls back to HTTP status code, logs warning
+
+**Security:**
+
+- Credentials never exposed in response or logs (masked via `rrd_mask_sensitive_data()`)
+- All order meta stored securely in WordPress database
+- AJAX handler already has nonce and capability checks (from Step 4)
+- Request body sent as JSON with proper Content-Type header
+
+**Files Modified:**
+
+- `includes/order-submission.php` - `rrd_submit_order_to_api()` function updated to use real API
+
+**Backward Compatibility:**
+
+- No changes to helper functions
+- No changes to settings or configuration
+- No database migrations required
+- Previous Steps 1-5 functionality unaffected
+- AJAX endpoints remain the same
+
+**Current Limitations (Step 6):**
+
+- **QA Credentials:** Currently using provided QA credentials that return 403 Forbidden
+- **Production Credentials:** Production endpoint available but requires production credentials
+- **No Retry Logic:** Single submission attempt per click (Step 7 will add retry logic)
+- **BasicOrder Only:** Only BasicOrder payload supported (CustomArtOrder planned for Step 8)
+- **No Duplicate Prevention:** No check for duplicate submissions (Step 7 will add this)
 
 **Error Handling:**
 

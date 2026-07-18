@@ -20,17 +20,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing SKU visibility - products without SKU included as "MISSING_SKU" for debugging
 - Warning logging for products with missing SKU to aid troubleshooting
 
+#### Live API Communication (Step 6)
+
+- Real HTTP POST requests to RRD endpoint using WordPress `wp_remote_post()`
+- Basic HTTP Authentication with credentials from settings
+- 30-second timeout for API requests
+- Complete response parsing to extract API `ReturnCode` and `Description`
+- Network error handling with exception handling and error logging
+- Full order meta storage of API responses for audit trail
+- Order submission history tracking (status, timestamp, return code, full response body)
+- Replaces simulated API calls with production-ready implementation
+
 ### Changed
 
 - `rrd_generate_payload_preview()` now generates real payloads instead of placeholders
+- `rrd_submit_order_to_api()` now makes real HTTP POST requests to RRD endpoint
 - Replaced single placeholder product line with dynamic product extraction
 - Removed placeholder note field from payload
+- API submission now stores complete response body and description in order meta
 
 ### Technical Details
 
 - Product UOM extracted from custom meta field `rrd_uom` with fallback to "EA"
 - Missing SKU handled as visible marker instead of silent skip
 - Warning logs include product name and line number for identification
+- HTTP requests sent to configured RRD endpoint (QA or Production)
+- Response stored as `rrd_last_response_body` in order meta for debugging
+- API description text stored in `rrd_description` for user-facing error messages
+- Submission attempt count tracked via `rrd_submit_count` order meta key
 
 ---
 
