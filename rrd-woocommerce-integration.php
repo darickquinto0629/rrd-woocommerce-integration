@@ -24,6 +24,7 @@ define( 'RRD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 // Load plugin files
 require_once RRD_PLUGIN_PATH . 'includes/helpers.php';
+require_once RRD_PLUGIN_PATH . 'includes/order-submission.php';
 
 /**
  * Activation Hook

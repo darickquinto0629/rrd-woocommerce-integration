@@ -5,7 +5,7 @@
 WordPress/WooCommerce plugin that integrates order submission with the RRD `createorder` API using Basic HTTP Authentication and JSON payloads.
 
 **Version:** 0.1.0  
-**Status:** Steps 1-3 Complete
+**Status:** Steps 1-4 Complete, Ready for Step 5 (Real Payload Builder)
 
 ---
 
@@ -100,6 +100,57 @@ WordPress/WooCommerce plugin that integrates order submission with the RRD `crea
 
 ---
 
+### ✅ Step 4: Order Submission UI
+
+**Date Completed:** 2026-07-19
+
+**What was implemented:**
+
+- Admin meta box on WooCommerce order pages displaying submission status
+- Status badge with color coding (Pending/Success/Failed)
+- **Generate Payload Preview** button - builds and displays JSON structure
+- **Send to RRD** button - submits order (simulated, Step 6 implements real API)
+- Collapsible accordion sections for payload and response viewing
+- JavaScript AJAX handlers with proper nonce security
+- CSS styling for meta box, buttons, badges, loading spinners
+- Order meta storage for submission status, payload, response, return codes
+- Order notes logging for audit trail
+
+**Security Features:**
+
+- AJAX nonce verification for both handlers
+- Capability check (`edit_shop_orders`)
+- Data sanitization in AJAX responses
+- Consolidated validation function `rrd_validate_ajax_request()`
+
+**Key Functions:**
+
+- `rrd_enqueue_order_submission_assets()` - Loads CSS/JS only on order pages
+- `rrd_render_order_section_admin($order)` - Main meta box renderer
+- `rrd_render_order_status_section($order)` - Status display component
+- `rrd_localize_order_submission_script()` - Passes secure data to JavaScript
+- `rrd_validate_ajax_request($nonce_key)` - Single validation for both AJAX handlers
+- `rrd_ajax_preview_payload()` - AJAX handler for payload preview
+- `rrd_ajax_submit_order()` - AJAX handler for order submission
+- `rrd_generate_payload_preview($order)` - Builds placeholder payload (Step 5 will replace with real mapper)
+- `rrd_submit_order_to_api($order)` - Updates meta and stores results (Step 6 implements real API call)
+
+**Files:**
+
+- `includes/order-submission.php` (core functionality)
+- `assets/css/order-submission.css` (styling)
+- `assets/js/order-submission.js` (client-side logic)
+- `rrd-woocommerce-integration.php` (hook registration)
+
+**Backward Compatibility:**
+
+- No changes to existing helper functions
+- No database migrations required
+- Settings and credentials from Steps 2-3 remain unchanged
+- Previous functionality unaffected
+
+---
+
 ## QA Credentials (Staging)
 
 - **URL:** https://api85-qa.rrd.com/corporate/v1/createorder
@@ -113,31 +164,44 @@ WordPress/WooCommerce plugin that integrates order submission with the RRD `crea
 
 ## Planned Next Steps
 
-### Step 4: Order Submission Hook
+### Step 5: Real Payload Builder
 
-- Hook into `woocommerce_thankyou` or `woocommerce_order_status_changed`
-- Capture order data from WooCommerce
-- Prepare payload for API submission
+- Replace placeholder payload generation with real WooCommerce product mapping
+- Extract product line items from orders (`$order->get_items()`)
+- Map SKU from WooCommerce product to `CustomerSKU` field
+- Handle multiple line items in single payload
+- Validate required fields and field-length limits
+- Test with multi-item orders
 
-### Step 5: Payload Builders
+### Step 6: Live API Communication
 
-- `BasicOrder` payload structure
-- `CustomArtOrder` payload structure
-- Data mapping from WooCommerce order to RRD format
+- Implement actual HTTP POST to RRD `createorder` endpoint
+- Replace simulated response with real API response
+- Handle timeouts (30s for BasicOrder)
+- Parse response for error codes and messages
+- Store response data in order meta
 
-### Step 6: API Communication
+### Step 7: Error Handling & Retry Logic
 
-- Send HTTP POST request to RRD endpoint
-- Handle timeouts (30s for BasicOrder, immediate for CustomArt)
-- Process API responses
-- Error handling and logging
+- Implement retry mechanism for failed submissions
+- Add manual retry button in admin UI
+- Detailed error messages for failed API calls
+- Duplicate submission prevention
 
-### Step 7: Testing & Validation
+### Step 8: CustomArtOrder Support
 
-- Test with QA credentials
-- Validate payload formats
-- Test both order types
-- Verify error handling
+- Implement second payload structure for custom art orders
+- Add order type detection logic
+- Create separate payload builder for CustomArtOrder
+- Support both BasicOrder and CustomArtOrder in single integration
+
+### Step 9: Testing & Validation
+
+- Test with QA credentials against staging API
+- Verify payload formats match RRD requirements
+- Test both single and multi-item orders
+- Test error handling and edge cases
+- User acceptance testing with client
 
 ---
 
