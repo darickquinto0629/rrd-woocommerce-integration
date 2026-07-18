@@ -417,23 +417,43 @@ function rrd_submit_order_to_api( $order ) {
 			'payload'   => $payload,
 		), $order_id );
 
-		// TODO: Step 6 - Send actual API request using wp_remote_post()
-		// For now, we'll simulate a successful response
+		// Send actual API request to RRD
+		$endpoint = rrd_get_api_endpoint();
+		$headers = rrd_get_api_headers();
 
-		// Simulate API response for testing
-		$response_body = wp_json_encode( array(
-			'ReturnCode'   => 200,
-			'Description'  => 'Order received (simulated response)',
-			'PONumber'     => $payload['PONumber'],
+		$response = wp_remote_post( $endpoint, array(
+			'method'      => 'POST',
+			'headers'     => $headers,
+			'body'        => $payload_json,
+			'timeout'     => 30,
+			'sslverify'   => true,
 		) );
 
-		$return_code = 200;
+		// Check for network/connection errors
+		if ( is_wp_error( $response ) ) {
+			$error_message = $response->get_error_message();
+			rrd_log( 'network_error', array(
+				'order_id' => $order_id,
+				'error'    => $error_message,
+			), $order_id );
+
+			throw new Exception( 'Network error: ' . $error_message );
+		}
+
+		// Get HTTP response code
+		$http_code = wp_remote_retrieve_response_code( $response );
+		$response_body = wp_remote_retrieve_body( $response );
+
+		// Parse RRD response
+		$response_data = json_decode( $response_body, true );
+		$return_code = $response_data['ReturnCode'] ?? $http_code;
+		$description = $response_data['Description'] ?? '';
 
 		// Store response
 		$order->update_meta_data( 'rrd_last_response_body', $response_body );
 		$order->update_meta_data( 'rrd_last_submitted_at', current_time( 'mysql' ) );
 		$order->update_meta_data( 'rrd_return_code', $return_code );
-		$order->update_meta_data( 'rrd_description', 'Successfully submitted' );
+		$order->update_meta_data( 'rrd_description', $description );
 
 		if ( 200 === $return_code ) {
 			$order->update_meta_data( 'rrd_submission_status', 'success' );
