@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] - 2026-07-19
+
+### Added
+
+#### Real Payload Builder (Step 5)
+
+- Dynamic product extraction from WooCommerce orders using `$order->get_items()`
+- Automatic SKU mapping from product data to `CustomerSKU` payload field
+- Dynamic UOM (Unit of Measure) support via product meta field `rrd_uom`
+- Multi-line payload support - complete `Line` array with all order items
+- Missing SKU visibility - products without SKU included as "MISSING_SKU" for debugging
+- Warning logging for products with missing SKU to aid troubleshooting
+
+### Changed
+
+- `rrd_generate_payload_preview()` now generates real payloads instead of placeholders
+- Replaced single placeholder product line with dynamic product extraction
+- Removed placeholder note field from payload
+
+### Technical Details
+
+- Product UOM extracted from custom meta field `rrd_uom` with fallback to "EA"
+- Missing SKU handled as visible marker instead of silent skip
+- Warning logs include product name and line number for identification
+
+---
+
 ## [0.1.0] - 2026-07-19
 
 ### Added
@@ -122,6 +149,6 @@ rrd-woocommerce-integration/
 | Version | Status      | Release Date | Focus Area                                         |
 | ------- | ----------- | ------------ | -------------------------------------------------- |
 | 0.1.0   | ✅ Released | 2026-07-19   | Core infrastructure, settings, order submission UI |
-| 0.2.0   | 🔄 Planned  | TBD          | Real payload builder                               |
+| 0.2.0   | ✅ Released | 2026-07-19   | Real payload builder                               |
 | 0.3.0   | 🔄 Planned  | TBD          | Live API integration                               |
 | 1.0.0   | 🔄 Planned  | TBD          | Production release                                 |

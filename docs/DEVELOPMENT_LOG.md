@@ -4,8 +4,8 @@
 
 WordPress/WooCommerce plugin that integrates order submission with the RRD `createorder` API using Basic HTTP Authentication and JSON payloads.
 
-**Version:** 0.1.0  
-**Status:** Steps 1-4 Complete, Ready for Step 5 (Real Payload Builder)
+**Version:** 0.2.0  
+**Status:** Steps 1-5 Complete
 
 ---
 
@@ -132,7 +132,7 @@ WordPress/WooCommerce plugin that integrates order submission with the RRD `crea
 - `rrd_validate_ajax_request($nonce_key)` - Single validation for both AJAX handlers
 - `rrd_ajax_preview_payload()` - AJAX handler for payload preview
 - `rrd_ajax_submit_order()` - AJAX handler for order submission
-- `rrd_generate_payload_preview($order)` - Builds placeholder payload (Step 5 will replace with real mapper)
+- `rrd_generate_payload_preview($order)` - Builds real payload with actual product mapping
 - `rrd_submit_order_to_api($order)` - Updates meta and stores results (Step 6 implements real API call)
 
 **Files:**
@@ -162,18 +162,77 @@ WordPress/WooCommerce plugin that integrates order submission with the RRD `crea
 
 ---
 
+### ✅ Step 5: Real Payload Builder
+
+**Date Completed:** 2026-07-19
+
+**What was implemented:**
+
+- Real product extraction from WooCommerce orders using `$order->get_items()`
+- Dynamic SKU mapping from product data to `CustomerSKU` field
+- Dynamic UOM (Unit of Measure) extraction from product meta (`rrd_uom` custom field)
+- Multi-line payload support - generates `Line` array with all order items
+- Missing SKU handling - products without SKU are included but marked as "MISSING_SKU" for visibility
+- Warning logging for products with missing SKU to aid debugging
+- Complete payload generation with real order data
+
+**Implementation Details:**
+
+**Function:** `rrd_generate_payload_preview($order)`
+
+- Iterates through all order items using `$order->get_items()`
+- For each product item:
+  - Retrieves product object and SKU
+  - Uses "MISSING_SKU" placeholder if SKU is empty (instead of skipping)
+  - Extracts UOM from `rrd_uom` product meta field, defaults to "EA"
+  - Logs warning for missing SKU with product name and line number
+  - Builds line item with real quantity from order
+- Constructs complete BasicOrder payload with:
+  - Real line items array (replaces single placeholder)
+  - All other fields remain (order number, shipping address, etc.)
+  - Removed placeholder note field
+
+**Product Meta Field:**
+
+- Custom field name: `rrd_uom`
+- Stores Unit of Measure (EA, BOX, CASE, etc.)
+- Default fallback: "EA" (Each)
+
+**Error Handling:**
+
+- Missing SKU: Included as "MISSING_SKU" + warning log (allows debugging)
+- Missing Product: Skipped silently (non-critical)
+- Missing UOM: Defaults to "EA"
+
+**Key Functions:**
+
+- `rrd_generate_payload_preview($order)` - Now implements real product mapping
+
+**Files:**
+
+- `includes/order-submission.php` - Updated `rrd_generate_payload_preview()` function
+
+**Testing Approach:**
+
+1. Create WooCommerce order with multiple products that have SKUs
+2. Click "Generate Payload Preview" button
+3. Verify JSON shows all products with correct SKUs and quantities
+4. Create test order with product missing SKU
+5. Verify payload includes product with "MISSING_SKU" value
+6. Check order notes for warning log entry
+
+**Backward Compatibility:**
+
+- UI/buttons unchanged - no visual changes
+- AJAX handlers unchanged
+- Only internal payload generation logic updated
+- Response structure unchanged
+
+---
+
 ## Planned Next Steps
 
-### Step 5: Real Payload Builder
-
-- Replace placeholder payload generation with real WooCommerce product mapping
-- Extract product line items from orders (`$order->get_items()`)
-- Map SKU from WooCommerce product to `CustomerSKU` field
-- Handle multiple line items in single payload
-- Validate required fields and field-length limits
-- Test with multi-item orders
-
-### Step 6: Live API Communication
+### Step 6: Live API Communication (Validation & Error Handling)
 
 - Implement actual HTTP POST to RRD `createorder` endpoint
 - Replace simulated response with real API response
