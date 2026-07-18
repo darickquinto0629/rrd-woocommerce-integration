@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.1] - 2026-07-19
+
+### Fixed
+
+#### Asset Loading Issue on Production
+
+- **Issue:** CSS and JavaScript files not loading on production WordPress sites, causing buttons to be non-functional
+- **Root Cause:** Unreliable asset enqueue check using `$_GET` and `REQUEST_URI` string matching
+- **Solution:** Replaced with proper WordPress screen detection via `get_current_screen()`
+- **Files Modified:** [class-rrd-admin.php](includes/class-rrd-admin.php) - `enqueue_assets()` method
+- **Impact:** Assets now load reliably on all WordPress configurations (legacy and HPOS)
+
+#### API Response Parsing - Multiple Response Formats
+
+- **Issue:** API returning error responses with different JSON structure than expected
+- **Root Cause:** Code only looked for `ReturnCode` and `Description` fields, but RRD API also uses `Status` and `Error` array format
+- **Solution:** Updated response parser to handle both formats dynamically
+- **Files Modified:** [class-rrd-api-client.php](includes/class-rrd-api-client.php) - `submit()` method
+- **Details:**
+  - Format 1 (Success): `{"ReturnCode": 200, "Description": "..."}`
+  - Format 2 (Error): `{"Status": "Fail", "Error": [{"ErrorCode": "5001"}]}`
+  - Now extracts error codes and messages from both formats
+  - Returns structured error descriptions for troubleshooting
+
+#### Response Handler - Status Code Recognition
+
+- **Issue:** Response handler only recognized numeric `200` as success, failed on string status values
+- **Solution:** Updated success detection to recognize both numeric `200` and string `"Success"`
+- **Files Modified:** [class-rrd-response-handler.php](includes/class-rrd-response-handler.php) - `handle()` method
+- **Details:**
+  - Success conditions: `return_code === 200` OR `return_code === "Success"`
+  - Failure conditions: Any other value (numeric codes, "Fail" status, etc.)
+  - Error descriptions now properly displayed in order notes
+
+#### Error Message Clarity
+
+- **Improvement:** Error messages now show actual error codes from RRD API
+- **Example:** `Code: Fail, Description: Error Code: 5001` (instead of generic "API Error")
+- **Benefit:** Better troubleshooting and communication with RRD support
+
+### Technical Details
+
+- All fixes maintain 100% backward compatibility
+- No database migrations required
+- No changes to order meta keys or AJAX actions
+- Improved error logging with better descriptions
+- All PHP files syntax verified
+
+### Testing
+
+✅ Asset loading verified on production environment  
+✅ API response parsing handles both formats  
+✅ Error responses properly captured and displayed  
+✅ Order notes show detailed error information  
+✅ All backward compatibility maintained
+
+---
+
 ## [0.3.0] - 2026-07-19
 
 ### Refactored

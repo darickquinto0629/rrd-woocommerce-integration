@@ -4,8 +4,8 @@
 
 WordPress/WooCommerce plugin that integrates order submission with the RRD `createorder` API using Basic HTTP Authentication and JSON payloads.
 
-**Version:** 0.2.0  
-**Status:** Steps 1-6 Complete
+**Version:** 0.3.1  
+**Status:** Production-Ready - All Features Complete + Bug Fixes
 
 ---
 
@@ -611,6 +611,181 @@ includes/
 - ✅ Follows WordPress and WooCommerce standards
 - ✅ Follows SOLID principles
 - ✅ Easier to extend and modify
+
+---
+
+## Bug Fixes Phase (v0.3.1)
+
+**Date Completed:** 2026-07-19
+
+**Issues Identified in Production Testing:**
+
+### 🐛 Bug 1: CSS/JavaScript Assets Not Loading on Production
+
+**Symptom:** Plugin buttons non-functional on production server, CSS styling missing
+
+**Root Cause:** Asset enqueue check used unreliable method:
+
+```php
+// BROKEN - Only works on specific server configurations
+if ( empty( $_GET['id'] ) || strpos( $_SERVER['REQUEST_URI'], 'page=wc-orders' ) === false ) {
+    return;  // Assets never enqueue on many production setups!
+}
+```
+
+**Fix:** Updated to use proper WordPress screen detection
+
+**File:** `includes/class-rrd-admin.php` - `enqueue_assets()` method
+
+**Changed Code:**
+
+```php
+// FIXED - Works on all WordPress configurations
+$screen = get_current_screen();
+if ( ! $screen || ( $screen->post_type !== 'shop_order' && $screen->id !== 'woocommerce_page_wc-orders' ) ) {
+    return;
+}
+```
+
+**Benefits:**
+
+- ✅ Works on legacy WooCommerce admin
+- ✅ Works on HPOS (High Performance Order Storage)
+- ✅ Works on all server configurations
+- ✅ Properly detects order pages using WordPress APIs
+
+---
+
+### 🐛 Bug 2: API Response Parsing - Multiple Response Formats
+
+**Symptom:** API returning error responses that weren't being parsed correctly
+
+**Production API Response:**
+
+```json
+{ "Status": "Fail", "Error": [{ "ErrorCode": "5001" }] }
+```
+
+**Root Cause:** Code only expected one response format:
+
+```php
+// BROKEN - Only handles BasicOrder response format
+$return_code = $response_data['ReturnCode'] ?? $http_code;
+$description = $response_data['Description'] ?? '';
+// Error response completely ignored!
+```
+
+**Fix:** Updated parser to handle both response formats
+
+**File:** `includes/class-rrd-api-client.php` - `submit()` method
+
+**Response Formats Supported:**
+
+1. **BasicOrder Response (Success):**
+
+   ```json
+   { "ReturnCode": 200, "Description": "Order accepted" }
+   ```
+
+2. **Error Response (Failure):**
+   ```json
+   { "Status": "Fail", "Error": [{ "ErrorCode": "5001" }] }
+   ```
+
+**Implementation:**
+
+```php
+// Check for BasicOrder response format (ReturnCode, Description)
+if ( isset( $response_data['ReturnCode'] ) ) {
+    $return_code = $response_data['ReturnCode'];
+    $description = $response_data['Description'] ?? '';
+}
+// Check for error response format (Status, Error array)
+elseif ( isset( $response_data['Status'] ) ) {
+    $return_code = $response_data['Status'];
+    // Extract error code and message
+    if ( isset( $response_data['Error'] ) && is_array( $response_data['Error'] ) ) {
+        $error = $response_data['Error'][0];
+        $error_code = $error['ErrorCode'] ?? 'Unknown';
+        $description = 'Error Code: ' . $error_code;
+        if ( $error['ErrorMessage'] ?? '' ) {
+            $description .= ' - ' . $error['ErrorMessage'];
+        }
+    }
+}
+```
+
+**Benefits:**
+
+- ✅ Handles both response formats seamlessly
+- ✅ Extracts error codes from array structure
+- ✅ Provides descriptive error messages for troubleshooting
+- ✅ Future-proof for any additional response formats
+
+---
+
+### 🐛 Bug 3: Response Handler - Status Code Recognition
+
+**Symptom:** Error responses marked as failures but then ignored silently
+
+**Root Cause:** Success detection only checked for numeric 200:
+
+```php
+// BROKEN - Only recognizes numeric 200
+$is_success = ( 200 === $return_code );
+// String "Success" or "Fail" status ignored!
+```
+
+**Fix:** Updated to recognize both numeric and string statuses
+
+**File:** `includes/class-rrd-response-handler.php` - `handle()` method
+
+**Implementation:**
+
+```php
+// FIXED - Recognizes both numeric 200 and string "Success"
+$is_success = ( 200 === $return_code || 'Success' === $return_code );
+```
+
+**Success Conditions:**
+
+- ✅ Numeric return code `200` (BasicOrder success)
+- ✅ String status `"Success"` (alternative success format)
+
+**Failure Conditions:**
+
+- ❌ Numeric return codes (403, 404, 500, etc.)
+- ❌ String status `"Fail"` (API rejection)
+- ❌ Any error code from Error array
+
+**Benefits:**
+
+- ✅ Handles both response formats correctly
+- ✅ Proper failure detection and logging
+- ✅ Error descriptions shown in order notes
+- ✅ Better troubleshooting information
+
+---
+
+### 📊 Error Messages Now Include Details
+
+**Before Fix:**
+
+```
+[RRD] Submission failed. Code: Fail, Description: API Error
+```
+
+**After Fix:**
+
+```
+[RRD] Submission failed. Code: Fail, Description: Error Code: 5001
+```
+
+**Impact:**
+
+- Users can see exact error codes from RRD API
+- Better communication with RRD support
+- Easier troubleshooting and debugging
 
 ---
 

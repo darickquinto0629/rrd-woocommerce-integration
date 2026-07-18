@@ -31,8 +31,11 @@ class RRD_Admin {
 	 * Enqueue CSS and JS for order submission
 	 */
 	public static function enqueue_assets() {
-		// Only load on order pages
-		if ( empty( $_GET['id'] ) || strpos( $_SERVER['REQUEST_URI'], 'page=wc-orders' ) === false ) {
+		// Check if this is a WooCommerce order page (works for both legacy and HPOS)
+		$screen = get_current_screen();
+		
+		// Only load on WooCommerce order pages
+		if ( ! $screen || ( $screen->post_type !== 'shop_order' && $screen->id !== 'woocommerce_page_wc-orders' ) ) {
 			return;
 		}
 
@@ -46,7 +49,7 @@ class RRD_Admin {
 		wp_enqueue_script(
 			'rrd-order-submission',
 			RRD_PLUGIN_URL . 'assets/js/order-submission.js',
-			array(),
+			array( 'jquery' ),
 			RRD_PLUGIN_VERSION,
 			true
 		);

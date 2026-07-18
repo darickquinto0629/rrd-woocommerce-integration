@@ -4,9 +4,9 @@
 
 This WordPress/WooCommerce plugin integrates order submission with the RRD `createorder` API using Basic HTTP Authentication and JSON payloads. Built with service-oriented architecture (SOA) following Single Responsibility Principle (SRP) for maintainability and scalability.
 
-**Version:** 0.3.0  
+**Version:** 0.3.1  
 **Author:** Darick L. Quinto  
-**Status:** Production-Ready - All Core Features & Architecture Complete
+**Status:** Production-Ready - All Core Features, Architecture & Bug Fixes Complete
 
 ---
 
