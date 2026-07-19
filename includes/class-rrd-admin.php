@@ -130,7 +130,7 @@ class RRD_Admin {
 					type="button"
 					class="rrd-button"
 					id="rrd-submit-button"
-					<?php disabled( ! $config_valid || $status['status'] !== 'never_sent' ); ?>
+					<?php disabled( ! $config_valid || ( $status['status'] !== 'never_sent' && $status['status'] !== 'failed' ) ); ?>
 				>
 					<?php esc_html_e( 'Send to RRD', 'rrd-woocommerce-integration' ); ?>
 				</button>

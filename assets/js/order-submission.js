@@ -70,6 +70,7 @@
 
     function submitOrderToRRD(id) {
       loading.style.display = "block";
+      submitBtn.disabled = true;
       fetch(rrdOrderSubmission.ajaxUrl, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -91,12 +92,16 @@
               "Error: " +
                 (data.data?.message || data.message || "Unknown error"),
             );
+            // Re-enable button on failure to allow retry
+            submitBtn.disabled = false;
           }
         })
         .catch((err) => {
           loading.style.display = "none";
           console.error("Submit error:", err);
           alert("Error: " + err.message);
+          // Re-enable button on error to allow retry
+          submitBtn.disabled = false;
         });
     }
   }

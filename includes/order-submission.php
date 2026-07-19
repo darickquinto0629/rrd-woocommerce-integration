@@ -49,6 +49,9 @@ function rrd_submit_order_to_api( $order ) {
 
 		$order->save();
 
+		// Clear meta cache to ensure fresh data on page reload
+		wp_cache_delete( $order_id, 'post_meta' );
+
 		return array(
 			'success' => $is_success,
 			'message' => 'Submission processed',
@@ -57,6 +60,9 @@ function rrd_submit_order_to_api( $order ) {
 	} catch ( Exception $e ) {
 		$order->update_meta_data( 'rrd_submission_status', 'failed' );
 		$order->save();
+
+		// Clear meta cache to ensure fresh data on page reload
+		wp_cache_delete( $order_id, 'post_meta' );
 
 		rrd_log( 'submission_error', array(
 			'order_id' => $order_id,

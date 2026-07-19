@@ -38,8 +38,8 @@ class RRD_Response_Handler {
 		$response_body = $api_response['response_body'];
 
 		// Determine success based on return code or status
-		// Success if: numeric 200 OR string "Success"
-		$is_success = ( 200 === $return_code || 'Success' === $return_code );
+		// Success if: numeric 200 OR string "Success"/"SUCCESS" (case-insensitive)
+		$is_success = ( 200 === $return_code || strtoupper( (string) $return_code ) === 'SUCCESS' );
 
 		if ( $is_success ) {
 			// Handle success

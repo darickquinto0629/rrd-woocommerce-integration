@@ -874,6 +874,272 @@ RRD: {"timestamp":"2026-07-19 10:30:47","action":"submission_success","order_id"
 
 ---
 
+### 🐛 Bug 5: Payload Structure - RRD API Schema Compliance
+
+**Symptom:** API returning error code 5001 (Invalid payload format) on all submissions
+
+**Root Cause:** Payload structure did not match official RRD CustomArt API schema:
+
+- Missing required `Header` wrapper object
+- Incorrect field naming: `PONumber` instead of `PO_Number`
+- Flat shipping structure instead of nested `ShipTo` object
+- Missing required `File_Name` and `File_Checksum` fields
+
+**Expected Schema (from RRD docs):**
+
+```json
+{
+  "Header": {
+    "OrderType": "BasicOrder",
+    "ClientId": "ESTRELLITA01",
+    "PO_Number": "WC-R37263",
+    "ShipTo": {
+      "RRD_ShipTo_Code": "0",
+      "ShipTo_Name": "John Doe",
+      "ShipTo_Address1": "..."
+    },
+    "Line": [
+      {
+        "Line_Number": 1,
+        "CustomerSKU": "...",
+        "Quantity": 2,
+        "UOM": "EA",
+        "File_Name": "...",
+        "File_Checksum": "..."
+      }
+    ]
+  }
+}
+```
+
+**Fix:** Updated `class-rrd-payload-builder.php` - `build_basic_order()` method
+
+**Implementation:**
+
+```php
+// New structure with Header wrapper
+$payload = array(
+    'Header' => array(
+        'OrderType'           => 'BasicOrder',
+        'ClientId'            => get_option( 'rrd_client_id', '' ),
+        'PO_Number'           => 'WC-' . $order->get_order_number(),  // Fixed naming
+        'SalesOrderNumber'    => 'WC-' . $order->get_order_number(),
+        'OrderNote'           => '',
+        'ShipTo'              => array(  // Now nested object
+            'RRD_ShipTo_Code' => '0',
+            'ShipTo_Name'     => $ship_to_name,
+            'ShipTo_Address1' => $order->get_shipping_address_1(),
+            // ... other fields
+        ),
+        'EXTCustomerReference' => array(),
+        'Line'                => $line_items,  // Each item has File_Name, File_Checksum
+    )
+);
+```
+
+**Benefits:**
+
+- ✅ Payload now matches exact RRD API schema
+- ✅ Error 5001 resolved
+- ✅ API now accepts payloads and provides more specific error messages (e.g., 4001 for missing fields)
+
+---
+
+### 🐛 Bug 6: ShipTo_Name Fallback to Billing Address
+
+**Symptom:** API returning error code 4001 (Required shipToName missing - transaction not processed)
+
+**Root Cause:** `ShipTo_Name` field is required by RRD API, but WooCommerce orders often have blank shipping details with only billing address populated
+
+**Typical Scenario:**
+
+- Customer checks "Use billing address for shipping"
+- Shipping fields are empty/blank
+- Billing name is populated
+- Payload has empty `ShipTo_Name` → Error 4001
+
+**Fix:** Added fallback logic in `class-rrd-payload-builder.php` - `build_basic_order()` method
+
+**Implementation:**
+
+```php
+// Get shipping name
+$ship_to_name = $order->get_shipping_first_name() . ' ' . $order->get_shipping_last_name();
+
+// Fallback to billing name if shipping name is empty
+if ( empty( trim( $ship_to_name ) ) ) {
+    $ship_to_name = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
+}
+
+$ship_to = array(
+    'RRD_ShipTo_Code' => '0',
+    'ShipTo_Name'      => $ship_to_name,  // Now always populated
+    // ... other fields
+);
+```
+
+**Benefits:**
+
+- ✅ Handles orders with blank shipping details
+- ✅ Resolves error 4001 (missing shipToName)
+- ✅ Better UX - customers don't need to enter shipping info twice
+
+---
+
+### 🐛 Bug 7: Button Disabled After Failed Submission
+
+**Symptom:** "Send to RRD" button locked in disabled state after failed submission, preventing retry without page reload
+
+**Root Cause:** Button enable/disable logic had two issues:
+
+1. Server-side: Button only enabled for `'never_sent'` status, not for `'failed'`
+2. Client-side: JavaScript never disabled/re-enabled button during request
+
+**Fix:** Updated button state logic in two files:
+
+**File 1:** `class-rrd-admin.php` - Button disabled attribute
+
+```php
+// OLD - Only enabled for never_sent
+<?php disabled( ! $config_valid || $status['status'] !== 'never_sent' ); ?>
+
+// NEW - Enabled for never_sent OR failed (allows retry)
+<?php disabled( ! $config_valid || ( $status['status'] !== 'never_sent' && $status['status'] !== 'failed' ) ); ?>
+```
+
+**File 2:** `order-submission.js` - AJAX handler
+
+```php
+function submitOrderToRRD(id) {
+    loading.style.display = "block";
+    submitBtn.disabled = true;  // Disable immediately (prevents duplicate clicks)
+
+    fetch(/* ... */)
+        .then((data) => {
+            loading.style.display = "none";
+            if (data.success) {
+                alert("Order submitted successfully. Refreshing...");
+                location.reload();  // Button stays disabled during reload
+            } else {
+                alert("Error: " + (data.data?.message || data.message || "Unknown error"));
+                submitBtn.disabled = false;  // Re-enable on failure for retry
+            }
+        })
+        .catch((err) => {
+            loading.style.display = "none";
+            alert("Error: " + err.message);
+            submitBtn.disabled = false;  // Re-enable on error for retry
+        });
+}
+```
+
+**Button State Logic:**
+
+| Scenario                                  | Enabled?               | Reason                       |
+| ----------------------------------------- | ---------------------- | ---------------------------- |
+| Never submitted (`never_sent`)            | ✅ Yes                 | User can submit              |
+| Previous submission failed (`failed`)     | ✅ Yes                 | User can retry               |
+| Previous submission succeeded (`success`) | ❌ No                  | Prevent duplicate submission |
+| During request (AJAX in progress)         | ❌ No                  | Prevent duplicate clicks     |
+| After failure response                    | ✅ Yes (re-enabled)    | User can immediately retry   |
+| After success response                    | ❌ No (stays disabled) | Page reloads, doesn't matter |
+
+**Benefits:**
+
+- ✅ Better UX - no page reload needed to retry
+- ✅ Faster testing/troubleshooting cycle
+- ✅ Prevents accidental duplicate submissions
+- ✅ Prevents duplicate submissions during request (button disabled while sending)
+
+---
+
+### 🐛 Bug 8: All ShipTo Fields Fallback to Billing Address
+
+**Symptom:** API returning error code 4001 for various ShipTo fields: "Required ShipTo_Address1 missing", "Required ShipTo_City missing", etc.
+
+**Root Cause:** Only `ShipTo_Name` had fallback logic. All other shipping fields (`Address1`, `Address2`, `City`, `State`, `Zip`, `Country`) required similar fallback when shipping details are empty
+
+**Pattern:** WooCommerce allows customers to use billing address for shipping, leaving shipping fields blank. RRD API requires these fields to be populated.
+
+**Example Error Sequence:**
+
+1. Fix ShipTo_Name → Error 4001: "Required ShipTo_Address1 missing"
+2. Fix ShipTo_Address1 → Error 4001: "Required ShipTo_City missing"
+3. Fix ShipTo_City → Error 4001: "Required ShipTo_State missing"
+4. And so on...
+
+**Fix:** Added comprehensive fallback logic for all ShipTo fields in `class-rrd-payload-builder.php` - `build_basic_order()` method
+
+**Implementation:**
+
+```php
+// Fallback logic for all shipping fields
+$ship_to_address1 = $order->get_shipping_address_1();
+if ( empty( trim( $ship_to_address1 ) ) ) {
+    $ship_to_address1 = $order->get_billing_address_1();
+}
+
+$ship_to_address2 = $order->get_shipping_address_2();
+if ( empty( trim( $ship_to_address2 ) ) ) {
+    $ship_to_address2 = $order->get_billing_address_2();
+}
+
+$ship_to_city = $order->get_shipping_city();
+if ( empty( trim( $ship_to_city ) ) ) {
+    $ship_to_city = $order->get_billing_city();
+}
+
+$ship_to_state = $order->get_shipping_state();
+if ( empty( trim( $ship_to_state ) ) ) {
+    $ship_to_state = $order->get_billing_state();
+}
+
+$ship_to_zip = $order->get_shipping_postcode();
+if ( empty( trim( $ship_to_zip ) ) ) {
+    $ship_to_zip = $order->get_billing_postcode();
+}
+
+$ship_to_country = $order->get_shipping_country();
+if ( empty( trim( $ship_to_country ) ) ) {
+    $ship_to_country = $order->get_billing_country();
+}
+
+// Build ShipTo object with all fields populated (no empty fields)
+$ship_to = array(
+    'RRD_ShipTo_Code' => '0',
+    'ShipTo_Name'      => $ship_to_name,      // Already has fallback
+    'ShipTo_Address1'  => $ship_to_address1,  // Now with fallback
+    'ShipTo_Address2'  => $ship_to_address2 ? $ship_to_address2 : '',
+    'ShipTo_City'      => $ship_to_city,      // Now with fallback
+    'ShipTo_State'     => $ship_to_state,     // Now with fallback
+    'ShipTo_Zip'       => $ship_to_zip,       // Now with fallback
+    'ShipTo_Country'   => $ship_to_country,   // Now with fallback
+    'ShipTo_Phone'     => $order->get_billing_phone(),
+);
+```
+
+**Fields with Fallback Logic:**
+
+| ShipTo Field    | Primary Source                                           | Fallback Source                                        | WooCommerce Method    |
+| --------------- | -------------------------------------------------------- | ------------------------------------------------------ | --------------------- |
+| ShipTo_Name     | `get_shipping_first_name()` + `get_shipping_last_name()` | `get_billing_first_name()` + `get_billing_last_name()` | ✅ Has fallback       |
+| ShipTo_Address1 | `get_shipping_address_1()`                               | `get_billing_address_1()`                              | ✅ Has fallback       |
+| ShipTo_Address2 | `get_shipping_address_2()`                               | `get_billing_address_2()`                              | ✅ Has fallback       |
+| ShipTo_City     | `get_shipping_city()`                                    | `get_billing_city()`                                   | ✅ Has fallback       |
+| ShipTo_State    | `get_shipping_state()`                                   | `get_billing_state()`                                  | ✅ Has fallback       |
+| ShipTo_Zip      | `get_shipping_postcode()`                                | `get_billing_postcode()`                               | ✅ Has fallback       |
+| ShipTo_Country  | `get_shipping_country()`                                 | `get_billing_country()`                                | ✅ Has fallback       |
+| ShipTo_Phone    | (No shipping phone in WooCommerce)                       | `get_billing_phone()`                                  | ✅ Uses billing phone |
+
+**Benefits:**
+
+- ✅ Eliminates all 4001 "Required field missing" errors for shipping details
+- ✅ Seamlessly handles orders using billing address as shipping
+- ✅ No special configuration needed - automatically uses billing when shipping blank
+- ✅ Reduces manual order adjustments and support tickets
+
+---
+
 ## Planned Next Steps
 
 ### Step 7: Error Handling & Retry Logic

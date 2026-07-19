@@ -64,6 +64,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Developers still have full debug trail in error_log
   - No functionality changes, only display improvements
 
+#### Payload Structure - RRD API Schema Compliance
+
+- **Issue:** Payload structure did not match RRD CustomArt API requirements, causing error 5001 (invalid payload)
+- **Root Cause:** Payload was flat structure without required `Header` wrapper and incorrect field naming
+- **Solution:** Restructured payload to match official RRD CustomArt API schema
+- **Files Modified:** [class-rrd-payload-builder.php](includes/class-rrd-payload-builder.php) - `build_basic_order()` method
+- **Changes:**
+  - Wrapped entire payload in required `Header` object
+  - Fixed field naming: `PONumber` → `PO_Number`, `LineNumber` → `Line_Number`
+  - Nested shipping fields into `ShipTo` object with `RRD_ShipTo_Code`, `ShipTo_Name`, etc.
+  - Added required `File_Name` and `File_Checksum` fields to line items
+  - Added `OrderNote` and `EXTCustomerReference` fields
+- **Benefits:**
+  - ✅ Payload now matches exact API schema requirements
+
+#### Shipping Field Fallback Logic
+
+- **Issue:** RRD API rejecting orders with error 4001: "Required ShipTo fields missing"
+- **Root Cause:** WooCommerce orders often have shipping fields empty, using only billing address instead
+- **Solution:** Added fallback logic for all shipping fields to use billing data when shipping is empty
+- **Files Modified:** [class-rrd-payload-builder.php](includes/class-rrd-payload-builder.php) - `build_basic_order()` method
+- **Details:**
+  - ShipTo_Name: Falls back to billing first/last name
+  - ShipTo_Address1: Falls back to billing address 1
+  - ShipTo_Address2: Falls back to billing address 2
+  - ShipTo_City: Falls back to billing city
+  - ShipTo_State: Falls back to billing state
+  - ShipTo_Zip: Falls back to billing postcode
+  - ShipTo_Country: Falls back to billing country
+  - ShipTo_Phone: Uses billing phone (WooCommerce doesn't have separate shipping phone)
+- **Implementation:**
+  ```php
+  $ship_to_address1 = $order->get_shipping_address_1();
+  if ( empty( trim( $ship_to_address1 ) ) ) {
+      $ship_to_address1 = $order->get_billing_address_1();
+  }
+  ```
+- **Benefits:**
+  - ✅ Orders with empty shipping fields now submit successfully
+  - ✅ Uses customer's provided billing address for missing shipping data
+  - ✅ Prevents error 4001 rejections
+  - ✅ Error 5001 resolved
+  - ✅ Better error messages (now getting 4001 with specific field errors)
+
+#### ShipTo_Name Fallback to Billing Address
+
+- **Issue:** Required field `ShipTo_Name` missing when shipping address is blank, causing error 4001 (missing shipToName)
+- **Root Cause:** WooCommerce order may have blank shipping details but valid billing address
+- **Solution:** Added fallback logic to use billing name when shipping name is empty
+- **Files Modified:** [class-rrd-payload-builder.php](includes/class-rrd-payload-builder.php) - `build_basic_order()` method
+- **Implementation:**
+  ```php
+  $ship_to_name = $order->get_shipping_first_name() . ' ' . $order->get_shipping_last_name();
+  if ( empty( trim( $ship_to_name ) ) ) {
+      $ship_to_name = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
+  }
+  ```
+- **Benefits:**
+  - ✅ Handles orders where shipping details are identical to billing
+  - ✅ Reduces "required field missing" errors
+  - ✅ Better UX for customers using billing address for shipping
+
+#### Button Retry Functionality
+
+- **Issue:** Submit button locked in disabled state after failed submission, requiring page reload to retry
+- **Root Cause:** Button was only enabled for `'never_sent'` status, but never re-enabled for `'failed'` status
+- **Solution:** Updated button enabled logic to allow retries on failed submissions
+- **Files Modified:**
+  - [class-rrd-admin.php](includes/class-rrd-admin.php) - Button disable logic changed to allow `'failed'` status
+  - [order-submission.js](assets/js/order-submission.js) - AJAX handler re-enables button on failure
+- **Logic:**
+  - Button enabled for: `'never_sent'` (first attempt) OR `'failed'` (retry)
+  - Button disabled for: `'success'` (no resend) or other statuses
+  - On failure: JavaScript re-enables button immediately for user to retry
+- **Benefits:**
+  - ✅ Better UX - no need to reload page after failed submission
+  - ✅ Faster testing/troubleshooting cycle
+  - ✅ Prevents duplicate submissions (button disabled during request)
+
+#### Case-Insensitive SUCCESS Status Detection
+
+- **Issue:** API returning `{"Status":"SUCCESS"}` (all caps) but status showing as "Failed"
+- **Root Cause:** Hardcoded string comparison was case-sensitive, only matching exact "Success" string
+- **Solution:** Updated success detection to use case-insensitive comparison
+- **Files Modified:** [class-rrd-response-handler.php](includes/class-rrd-response-handler.php) - `handle()` method
+- **Implementation:**
+  ```php
+  $is_success = ( 200 === $return_code || strtoupper( (string) $return_code ) === 'SUCCESS' );
+  ```
+- **Details:**
+  - Now accepts: "SUCCESS", "Success", "success" (any case variation)
+  - Also accepts numeric return code 200
+  - Improves API compatibility with case variations
+- **Benefits:**
+  - ✅ Handles RRD API responses in any case format
+  - ✅ Robust success detection
+  - ✅ No more case-sensitivity issues
+
+#### Status Display Meta Cache Fix
+
+- **Issue:** After successful submission and page reload, status displayed as "Failed" despite correct return code
+- **Root Cause:** WordPress meta cache was not cleared after updating order meta, causing stale cached values to display
+- **Solution:** Clear meta cache after successful submission to ensure fresh data on page reload
+- **Files Modified:** [order-submission.php](includes/order-submission.php) - `rrd_submit_order_to_api()` function
+- **Implementation:**
+  ```php
+  $order->save();
+  wp_cache_delete( $order_id, 'post_meta' );  // Clear cached meta
+  ```
+- **Details:**
+  - Called after both successful and failed submissions
+  - Ensures `wc_get_order()` fetches fresh meta from database
+  - Prevents stale cached status from displaying
+- **Benefits:**
+  - ✅ Status now displays correctly after page reload
+  - ✅ Order meta always reflects current database state
+  - ✅ No more misleading status displays
+
 ### Technical Details
 
 - All fixes maintain 100% backward compatibility
