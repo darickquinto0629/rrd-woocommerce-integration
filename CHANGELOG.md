@@ -47,6 +47,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Example:** `Code: Fail, Description: Error Code: 5001` (instead of generic "API Error")
 - **Benefit:** Better troubleshooting and communication with RRD support
 
+#### Excessive Order Notes - Debug Logs Cleanup
+
+- **Issue:** Order notes cluttered with verbose debug information (sending_request, payload details) making it hard to see important status updates
+- **Root Cause:** `rrd_log()` function was adding all logs as private order notes
+- **Solution:** Modified `rrd_log()` to only log to error_log for debugging; only status changes appear in order notes
+- **Files Modified:** [helpers.php](includes/helpers.php) - `rrd_log()` function
+- **Details:**
+  - Debug logs go to `error_log()` (hidden from staff view)
+  - Only important status updates (success/failure) appear in private notes
+  - Cleaner, more professional order note history
+  - All troubleshooting info still available in `wp-content/debug.log`
+- **Benefits:**
+  - Admin interface cleaner and easier to navigate
+  - Important status messages stand out
+  - Developers still have full debug trail in error_log
+  - No functionality changes, only display improvements
+
 ### Technical Details
 
 - All fixes maintain 100% backward compatibility

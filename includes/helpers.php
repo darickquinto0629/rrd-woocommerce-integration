@@ -59,9 +59,12 @@ function rrd_get_api_headers() {
 /**
  * Log API request/response with masked credentials
  *
- * @param string $action  Log action (send_request, receive_response, error, etc.)
+ * Debug logging only - logs to error log for troubleshooting.
+ * Order notes are handled separately by RRD_Response_Handler for status changes.
+ *
+ * @param string $action  Log action (sending_request, submission_success, submission_error, etc.)
  * @param mixed  $data    Data to log
- * @param int    $order_id Order ID (optional)
+ * @param int    $order_id Order ID (optional, for context only)
  */
 function rrd_log( $action, $data, $order_id = 0 ) {
 	$log_entry = array(
@@ -71,16 +74,9 @@ function rrd_log( $action, $data, $order_id = 0 ) {
 		'data'      => $data,
 	);
 	
-	// Log to file
+	// Log to error_log only (for developers/debugging)
+	// Order status notes are added by RRD_Response_Handler, not here
 	error_log( 'RRD: ' . wp_json_encode( $log_entry ) );
-	
-	// If order ID provided, also log to order notes
-	if ( $order_id > 0 ) {
-		$order = wc_get_order( $order_id );
-		if ( $order ) {
-			$order->add_order_note( '[RRD] ' . $action . ': ' . wp_json_encode( $data ) );
-		}
-	}
 }
 
 /**

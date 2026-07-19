@@ -767,25 +767,109 @@ $is_success = ( 200 === $return_code || 'Success' === $return_code );
 
 ---
 
-### 📊 Error Messages Now Include Details
+### � Bug 4: Excessive Order Notes - Debug Logs in Private Notes
 
-**Before Fix:**
+**Symptom:** Order notes cluttered with debug information from every API call, making it hard to see important status updates
+
+**Example of Problem:**
 
 ```
-[RRD] Submission failed. Code: Fail, Description: API Error
+[RRD] sending_request: {"order_id":102672,"endpoint":"https://api85-qa.rrd.com/corporate/v1/createorder","payload":{...full payload...}}
 ```
 
-**After Fix:**
+This was appearing in the "Add note (private)" section on every submission, clogging the order's note history.
+
+**Root Cause:** `rrd_log()` function in helpers.php was designed to add ALL logs as private order notes:
+
+```php
+// BROKEN - Every rrd_log() call adds a private note
+if ( $order_id > 0 ) {
+    $order = wc_get_order( $order_id );
+    if ( $order ) {
+        $order->add_order_note( '[RRD] ' . $action . ': ' . wp_json_encode( $data ) );
+    }
+}
+```
+
+This resulted in multiple verbose debug notes for each submission:
+- `sending_request` note with full payload
+- `submission_success` or `submission_error` note
+- Extra debug information
+
+**Fix:** Modified `rrd_log()` to ONLY log to error_log for debugging
+
+**File:** `includes/helpers.php` - `rrd_log()` function
+
+**Implementation:**
+
+```php
+// FIXED - Only logs to error_log, NOT to order notes
+function rrd_log( $action, $data, $order_id = 0 ) {
+    $log_entry = array(
+        'timestamp' => current_time( 'mysql' ),
+        'action'    => $action,
+        'order_id'  => $order_id,
+        'data'      => $data,
+    );
+    
+    // Log to error_log only (for developers/debugging)
+    // Order status notes are added by RRD_Response_Handler, not here
+    error_log( 'RRD: ' . wp_json_encode( $log_entry ) );
+}
+```
+
+**Architecture Decision:**
+
+- ✅ `rrd_log()` → error_log only (for developers debugging)
+- ✅ `RRD_Response_Handler::handle()` → adds meaningful status notes only (success/failure)
+- ✅ Exception handler → adds error notes only
+
+**Benefits:**
+
+- ✅ Clean order note history with only important status updates
+- ✅ Debug information safely in error_log (not exposed to staff view)
+- ✅ Cleaner admin interface for WooCommerce staff
+- ✅ No change to user-facing functionality
+- ✅ All troubleshooting info still available via error_log
+
+**Order Notes Now Display:**
+
+Only important status changes:
+
+```
+[RRD] Order successfully submitted. Return Code: 200
+```
+
+OR
 
 ```
 [RRD] Submission failed. Code: Fail, Description: Error Code: 5001
 ```
 
-**Impact:**
+**Debug Information Preserved:**
 
-- Users can see exact error codes from RRD API
-- Better communication with RRD support
-- Easier troubleshooting and debugging
+All detailed logs preserved in `wp-content/debug.log`:
+
+```
+RRD: {"timestamp":"2026-07-19 10:30:45","action":"sending_request","order_id":102672,"data":{...}}
+RRD: {"timestamp":"2026-07-19 10:30:47","action":"submission_success","order_id":102672,"data":{...}}
+```
+
+---
+
+### 📊 Summary of Changes to Logging Architecture
+
+**Before Fix:**
+
+- Debug logs → Added to private order notes (visible in admin)
+- Status updates → Also added as private notes
+- Result: Cluttered, hard to read order note history
+
+**After Fix:**
+
+- Debug logs → Only in error_log (developers only)
+- Status updates → Clean private order notes (staff visible)
+- Result: Clear, important information only in order notes
 
 ---
 
