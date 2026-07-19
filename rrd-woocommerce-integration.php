@@ -3,7 +3,7 @@
  * Plugin Name: RRD WooCommerce Integration
  * Plugin URI: https://github.com/darickquinto0629/rrd-woocommerce-integration
  * Description: Integrates WooCommerce orders with RRD createorder API
- * Version: 0.1.0
+ * Version: 0.3.1
  * Author: Darick L. Quinto
  * Author URI: https://github.com/darickquinto0629
  * License: GPL v2 or later
@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) || exit;
 
 // Define plugin constants
-define( 'RRD_PLUGIN_VERSION', '0.1.0' );
+define( 'RRD_PLUGIN_VERSION', '0.3.1' );
 define( 'RRD_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
 define( 'RRD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
