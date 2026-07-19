@@ -20,8 +20,8 @@ class RRD_Response_Handler {
 	/**
 	 * Handle API response and update order state
 	 *
-	 * Determines success/failure based on return code, updates order meta,
-	 * adds order notes, and logs the submission result.
+	 * Determines success/failure based on return code, updates order meta, and logs the submission result.
+	 * Note: Status is displayed in the RRD meta box widget, not added as order notes to avoid duplication.
 	 *
 	 * @param WC_Order $order       The WooCommerce order object.
 	 * @param array    $api_response API response data from RRD_API_Client::submit().
@@ -44,11 +44,6 @@ class RRD_Response_Handler {
 		if ( $is_success ) {
 			// Handle success
 			$order->update_meta_data( 'rrd_submission_status', 'success' );
-			$order->add_order_note( sprintf(
-				/* translators: %s: Return code */
-				__( '[RRD] Order successfully submitted. Return Code: %s', 'rrd-woocommerce-integration' ),
-				$return_code
-			) );
 
 			rrd_log( 'submission_success', array(
 				'order_id'    => $order_id,
@@ -57,12 +52,6 @@ class RRD_Response_Handler {
 		} else {
 			// Handle failure
 			$order->update_meta_data( 'rrd_submission_status', 'failed' );
-			$order->add_order_note( sprintf(
-				/* translators: %1$s: Return code, %2$s: Description */
-				__( '[RRD] Submission failed. Code: %1$s, Description: %2$s', 'rrd-woocommerce-integration' ),
-				$return_code,
-				$description
-			) );
 
 			rrd_log( 'submission_failed', array(
 				'order_id'    => $order_id,

@@ -56,11 +56,6 @@ function rrd_submit_order_to_api( $order ) {
 		);
 	} catch ( Exception $e ) {
 		$order->update_meta_data( 'rrd_submission_status', 'failed' );
-		$order->add_order_note( sprintf(
-			/* translators: %s: Error message */
-			__( '[RRD] Submission error: %s', 'rrd-woocommerce-integration' ),
-			$e->getMessage()
-		) );
 		$order->save();
 
 		rrd_log( 'submission_error', array(
