@@ -792,6 +792,7 @@ if ( $order_id > 0 ) {
 ```
 
 This resulted in multiple verbose debug notes for each submission:
+
 - `sending_request` note with full payload
 - `submission_success` or `submission_error` note
 - Extra debug information
@@ -811,7 +812,7 @@ function rrd_log( $action, $data, $order_id = 0 ) {
         'order_id'  => $order_id,
         'data'      => $data,
     );
-    
+
     // Log to error_log only (for developers/debugging)
     // Order status notes are added by RRD_Response_Handler, not here
     error_log( 'RRD: ' . wp_json_encode( $log_entry ) );
